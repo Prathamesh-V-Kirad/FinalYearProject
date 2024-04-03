@@ -462,7 +462,7 @@ const Studio = () => {
 
   return (
     <>
-      <StudioModal/>
+     {/* <StudioModal/> */}
       <div className="flex h-screen">
         <div className="w-4/6 p-4 bg-secondary flex flex-col justify-evenly">
           <div className="flex gap-3 justify-center">
