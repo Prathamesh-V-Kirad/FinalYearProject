@@ -68,7 +68,7 @@ const Studio = () => {
       try {
         const userMediaStream = await navigator.mediaDevices.getUserMedia({
           video: true,
-          audio: false,
+          audio: true,
         });
 
         setUserStream(userMediaStream);
@@ -136,98 +136,98 @@ const Studio = () => {
     }
   };
 
-  useEffect(() => {
-    const observerCallback = () => {
-      console.log('Element added to videoContainer');
-      // Call the drawOnCanvas function here
-      requestAnimationFrame(drawOnCanvas);
-  };
+//   useEffect(() => {
+//     const observerCallback = () => {
+//       console.log('Element added to videoContainer');
+//       // Call the drawOnCanvas function here
+//       requestAnimationFrame(drawOnCanvas);
+//   };
 
-  // Create a new MutationObserver instance
-    const observer = new MutationObserver(observerCallback);
+//   // Create a new MutationObserver instance
+//     const observer = new MutationObserver(observerCallback);
 
-  // Start observing changes to the videoContainer
-    observer.observe(videoContainerRef.current, { childList: true });
-    const drawOnCanvas = () => {
-      const ctx = canvasRef.current?.getContext('2d');
-      const videos = videoContainerRef.current?.querySelectorAll('video');
-      const userVideo = userVideoRef.current;
-      const screenShareVideo = isScreenSharing && screenShareVideoRef.current;
+//   // Start observing changes to the videoContainer
+//     observer.observe(videoContainerRef.current, { childList: true });
+//     const drawOnCanvas = () => {
+//       const ctx = canvasRef.current?.getContext('2d');
+//       const videos = videoContainerRef.current?.querySelectorAll('video');
+//       const userVideo = userVideoRef.current;
+//       const screenShareVideo = isScreenSharing && screenShareVideoRef.current;
       
-      if (ctx) {
+//       if (ctx) {
         
-            ctx.fillStyle = 'red';
-            ctx.clearRect(0, 0, width, height); // Clear the canvas before redrawing
-            // Define the number of columns and rows for the 3x3 grid
-            const numColumns = 3;
-            const numRows = 3;
+//             ctx.fillStyle = 'red';
+//             ctx.clearRect(0, 0, width, height); // Clear the canvas before redrawing
+//             // Define the number of columns and rows for the 3x3 grid
+//             const numColumns = 3;
+//             const numRows = 3;
 
-            // Calculate the width and height of each cell in the grid
-            const cellWidth = width / numColumns;
-            const cellHeight = height / numRows;
+//             // Calculate the width and height of each cell in the grid
+//             const cellWidth = width / numColumns;
+//             const cellHeight = height / numRows;
 
-            // Initialize variables to keep track of the current cell position
-            let currentCol = 0;
-            let currentRow = 0;
+//             // Initialize variables to keep track of the current cell position
+//             let currentCol = 0;
+//             let currentRow = 0;
 
-            // Draw the user video (if available)
-            if (userVideo) {
-                const videoWidth = 200;
-                const videoHeight = 150;
-                const userX = currentCol * cellWidth;
-                const userY = currentRow * cellHeight;
-                ctx.drawImage(userVideo, userX, userY, videoWidth, videoHeight);
-                currentCol++;
-                if (currentCol === numColumns) {
-                    currentCol = 0;
-                    currentRow++;
-                }
-            }
+//             // Draw the user video (if available)
+//             if (userVideo) {
+//                 const videoWidth = 200;
+//                 const videoHeight = 150;
+//                 const userX = currentCol * cellWidth;
+//                 const userY = currentRow * cellHeight;
+//                 ctx.drawImage(userVideo, userX, userY, videoWidth, videoHeight);
+//                 currentCol++;
+//                 if (currentCol === numColumns) {
+//                     currentCol = 0;
+//                     currentRow++;
+//                 }
+//             }
 
-            // Draw the screen share video (if active)
-            if (screenShareVideo) {
-                const { videoWidth, videoHeight } = screenShareVideo;
-                const screenScale = Math.min(cellWidth / videoWidth, cellHeight / videoHeight);
-                const screenX = currentCol * cellWidth;
-                const screenY = currentRow * cellHeight;
-                ctx.drawImage(screenShareVideo, screenX, screenY, videoWidth * screenScale, videoHeight * screenScale);
-                currentCol++;
-                if (currentCol === numColumns) {
-                    currentCol = 0;
-                    currentRow++;
-                }
-            }
+//             // Draw the screen share video (if active)
+//             if (screenShareVideo) {
+//                 const { videoWidth, videoHeight } = screenShareVideo;
+//                 const screenScale = Math.min(cellWidth / videoWidth, cellHeight / videoHeight);
+//                 const screenX = currentCol * cellWidth;
+//                 const screenY = currentRow * cellHeight;
+//                 ctx.drawImage(screenShareVideo, screenX, screenY, videoWidth * screenScale, videoHeight * screenScale);
+//                 currentCol++;
+//                 if (currentCol === numColumns) {
+//                     currentCol = 0;
+//                     currentRow++;
+//                 }
+//             }
 
-            // Draw the other videos from the video elements
-            videos?.forEach((videoElement: any) => {
-                const videoWidth = 200;
-                const videoHeight = 150;
+//             // Draw the other videos from the video elements
+//             videos?.forEach((videoElement: any) => {
+//                 const videoWidth = 200;
+//                 const videoHeight = 150;
     
-                const x = currentCol * cellWidth;
-                const y = currentRow * cellHeight;
-                ctx.drawImage(videoElement, x, y, videoWidth, videoHeight);
+//                 const x = currentCol * cellWidth;
+//                 const y = currentRow * cellHeight;
+//                 ctx.drawImage(videoElement, x, y, videoWidth, videoHeight);
 
-                currentCol++;
-                if (currentCol === numColumns) {
-                    currentCol = 0;
-                    currentRow++;
-                }
-            });
-        }
+//                 currentCol++;
+//                 if (currentCol === numColumns) {
+//                     currentCol = 0;
+//                     currentRow++;
+//                 }
+//             });
+//         }
 
-        requestAnimationFrame(drawOnCanvas); // Continue drawing on the canvas
+//         requestAnimationFrame(drawOnCanvas); // Continue drawing on the canvas
         
-    };
+//     };
 
-    requestAnimationFrame(drawOnCanvas); // Start drawing on the canvas
-    return () => {
-      observer.disconnect();
-  };
-}, [userVideoRef, isScreenSharing, screenShareVideoRef,videoContainerRef]);  
+//     requestAnimationFrame(drawOnCanvas); // Start drawing on the canvas
+//     return () => {
+//       observer.disconnect();
+//   };
+// }, [userVideoRef, isScreenSharing, screenShareVideoRef,videoContainerRef]);  
 
-  const screenStop = () =>{
+  const Stop = () =>{
     console.log("STOP");
-    socket.emit('stopScreenShare', screenProducerInstance.id);
+    socket.emit('stopRecord');
   }
 
   const handleLive = () => {
@@ -240,35 +240,35 @@ const Studio = () => {
     // }
   };
   
-  const recorderInit = () => {
+  // const recorderInit = () => {
     
-    if (canvasRef.current) {
-      //@ts-ignore
-      //const liveStream = (userVideoRef.current as any).captureStream(30);
-      //const liveStream = (screenShareVideoRef.current as any).captureStream(30);
-      const liveStream = (canvasRef.current as any).captureStream(30); 
-      const audioStream = userStream?.getAudioTracks()[0];
-      const liveStreamTrack = liveStream.getVideoTracks()[0];
+  //   if (canvasRef.current) {
+  //     //@ts-ignore
+  //     //const liveStream = (userVideoRef.current as any).captureStream(30);
+  //     //const liveStream = (screenShareVideoRef.current as any).captureStream(30);
+  //     const liveStream = (canvasRef.current as any).captureStream(30); 
+  //     const audioStream = userStream?.getAudioTracks()[0];
+  //     const liveStreamTrack = liveStream.getVideoTracks()[0];
 
-      const merge = new MediaStream([
-        liveStreamTrack,
-        audioStream,
-      ])
-      let mediaRecorder = new MediaRecorder(merge, {
-        mimeType: 'video/webm;codecs=h264',
-        videoBitsPerSecond: 3 * 1024 * 1024,
-      });
+  //     const merge = new MediaStream([
+  //       liveStreamTrack,
+  //       audioStream,
+  //     ])
+  //     let mediaRecorder = new MediaRecorder(merge, {
+  //       mimeType: 'video/webm;codecs=h264',
+  //       videoBitsPerSecond: 3 * 1024 * 1024,
+  //     });
 
-      console.log(mediaRecorder, mediaRecorder.ondataavailable);
-      mediaRecorder.ondataavailable = (e: any) => {
-          console.log('sending chunks', e.data, socket);
-          socket.send(e.data);
-      };
-      mediaRecorder.start(1000);
-    } else {
-      console.error('Canvas stream is not available');
-    }
-  };
+  //     console.log(mediaRecorder, mediaRecorder.ondataavailable);
+  //     mediaRecorder.ondataavailable = (e: any) => {
+  //         console.log('sending chunks', e.data, socket);
+  //         socket.send(e.data);
+  //     };
+  //     mediaRecorder.start(1000);
+  //   } else {
+  //     console.error('Canvas stream is not available');
+  //   }
+  // };
   
   useMemo(() => {
     socket.emit('joinRoom', { roomName: roomName }, (data: any) => {
@@ -356,7 +356,7 @@ const Studio = () => {
     socket.emit('get-transport',(transports:any)=>{
       console.log(`Transports: ${JSON.stringify(transports)}`);
     })
-    recorderInit();
+    //recorderInit();
   }  
   const signalNewConsumerTransport = async (remoteProducerId: any) => {
     if (consumingTransports.includes(remoteProducerId)) return;
@@ -469,9 +469,9 @@ const Studio = () => {
             <Video className="w-[250px] h-[150px] bg-black p-1 m-1" videoRef={userVideoRef} />
             <Video className={`w-[250px] h-[150px] ${!isScreenSharing ? "hidden" : ""}`} videoRef={screenShareVideoRef} />
           </div>
-          {isAdmin?
-            <canvas ref={canvasRef} width= {width} height={height} /> : <div></div> }
-          <div id="videoContainer" ref={videoContainerRef} className={`grid grid-cols-4 justify-start mt-4 ${isAdmin ? "hidden" : ""}`}></div>
+          {/* {isAdmin?
+            <canvas ref={canvasRef} width= {width} height={height} /> : <div></div> } */}
+          <div id="videoContainer" ref={videoContainerRef} className={`grid grid-cols-4 justify-start mt-4`}></div>
           {/*<div className="border border-lime-500 p-10"></div>*/}
           <div className='flex items-center justify-center gap-2'>
             <Button onClick={toggleAudio} className={`w-16 h-16 p-3 rounded-full ${micText && ('bg-red-700 hover:bg-red-800')}`}>
@@ -489,7 +489,7 @@ const Studio = () => {
           <div className="flex items-center justify-center gap-2 py-4">
             <Button onClick={handleLive}>{GO_LIVE_TEXT}</Button>
             <Button onClick={transport}>GET TRANSPORT</Button>
-            <Button onClick={screenStop}>STOP</Button>
+            <Button onClick={Stop}>STOP</Button>
           </div>
           <div className="border flex flex-col">
             <h3 className='text-2xl font-semibold tracking-tight p-2'>Live Chat</h3>

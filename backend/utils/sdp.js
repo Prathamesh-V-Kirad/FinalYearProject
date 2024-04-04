@@ -1,6 +1,6 @@
 
 // File to create SDP text from mediasoup RTP Parameters
-export default createSdpText = (rtpParameters) => {
+const createSdpText = (rtpParameters) => {
   const { video, audio } = rtpParameters;
   
 
@@ -18,3 +18,4 @@ export default createSdpText = (rtpParameters) => {
   `;
 };
 
+export default createSdpText;

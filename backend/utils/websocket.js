@@ -1,11 +1,12 @@
 import { Server } from 'socket.io';
 import { ChildProcess, spawn } from 'child_process';
-import { inputSettings , twitchSettings , youtubeSettings} from "./ffmpeg.js";
-
+import FFmpeg from "./ffmpeg.js";
+import config  from './config.js';
 //import { createWorker } from './worker.js';
-import config  from './soup_config.js';
 import cors  from "cors";
 import * as mediasoup from 'mediasoup';
+import { getPort, releasePort } from './port.js';
+
  
 let worker;
 let router;
@@ -13,7 +14,8 @@ let rooms = {};
 let peers = {};          
 let transports = [];     
 let producers = [];      
-let consumers = [];  
+let consumers = [];
+let remotePorts = [];
 let producerTransportMap = {};
 
 const mediaCodecs = [
@@ -73,42 +75,11 @@ const WebSocket=(()=>{
       
           return items
         }
-          const url = `rtmp://a.rtmp.youtube.com/live2/${process.env.TWITCH_STREAM_KEY}`;
-          const ffmpegInput = inputSettings.concat(
-            youtubeSettings(url),
-            //twitchSettings(twitch)
-            // facebookSettings(facebook),
-            // customRtmpSettings(customRTMP)
-          );
-          const ffmpeg = spawn('ffmpeg', ffmpegInput);
-
-          // If FFmpeg stops for any reason, close the WebSocket connection.
-          ffmpeg.on('close', (code, signal) => {
-            console.log('FFmpeg child process closed, code ' + code + ', signal ' + signal);
-            // ws.terminate()
-          });
-
-          // Handle STDIN pipe errors by logging to the console.
-          // These errors most commonly occur when FFmpeg closes and there is still
-          // data to write.  If left unhandled, the server will crash.
-          ffmpeg.stdin.on('error', (e) => {
-            console.log('FFmpeg STDIN Error', e);
-          });
-
-          // FFmpeg outputs all of its messages to STDERR.  Let's log them to the console.
-          ffmpeg.stderr.on('data', (data) => {
-            console.log('FFmpeg STDERR:', data.toString());
-          });
-
-          // When data comes in from the WebSocket, write it to FFmpeg's STDIN.
-          socket.on('message', (msg) => {
-            console.log('DATA', msg);
-            ffmpeg.stdin.write(msg);
-          });
+          
         socket.on('disconnect', () => {
           console.log('peer disconnected');
           console.log('kill: SIGINT');
-          ffmpeg.kill('SIGINT');
+          
           if (peers[socket.id]) {
             consumers = removeItems(consumers, socket.id, 'consumer');
             producers = removeItems(producers, socket.id, 'producer');
@@ -228,17 +199,17 @@ const WebSocket=(()=>{
           }
         }
         
-        const addProducer = (producer, roomName) => {
+        const addProducer = (producer, roomName,kind) => {
           producers = [
             ...producers,
-            { socketId: socket.id, producer, roomName, }
+            { socketId: socket.id, producer, roomName }
           ]
       
           peers[socket.id] = {
             ...peers[socket.id],
             producers: [
               ...peers[socket.id].producers,
-              producer.id,
+              {producerId:producer.id,kind:kind},
             ]
           }
         }
@@ -257,6 +228,24 @@ const WebSocket=(()=>{
             ]
           }
         }
+
+
+        const addRemotePort = (remoteport, roomName) => {
+          const peer = peers[socket.id];
+          const remotePortArray = peer.remotePort || []; // Initialize if not exist
+          remotePortArray.push(remoteport);
+        
+          remotePorts.push({
+            socketId: socket.id,
+            remotePort: remotePortArray,
+            roomName,
+          });
+        
+          peers[socket.id] = {
+            ...peers[socket.id],
+            remotePort: remotePortArray, // Update the remotePort property
+          };
+        };
         
         socket.on('getProducers', callback => {
           const { roomName } = peers[socket.id]
@@ -307,12 +296,11 @@ const WebSocket=(()=>{
           
           const { roomName } = peers[socket.id]
           
-          addProducer(producer, roomName)
+          addProducer(producer, roomName , kind)
           
           informConsumers(roomName, socket.id, producer.id)
           
           console.log('Producer ID: ', producer.id, producer.kind)
-          
           producer.on('transportclose', () => {
             console.log('transport for this producer closed ')
             producer.close()
@@ -325,6 +313,7 @@ const WebSocket=(()=>{
           })
         })
         
+                  
         // see client's socket.emit('transport-recv-connect', ...)
         socket.on('transport-recv-connect', async ({ dtlsParameters, serverConsumerTransportId }) => {
           console.log(`DTLS PARAMS: ${JSON.stringify(dtlsParameters)}`)
@@ -405,12 +394,121 @@ const WebSocket=(()=>{
               transportIdList = [...transportIdList, transportData.transport.internal.transportId];
           })
           callback(transportIdList);
+          startRecord(socket.id);
         });
+
+        socket.on('stopRecord', () =>{
+          handleStopRecordRequest(socket.id); 
+        });
+        const handleStopRecordRequest = async (socketId) => {
+          console.log('handleStopRecordRequest() [data:%o]', jsonMessage);
+          const peer = peers[socketId];
+        
+          if (!peer) {
+            throw new Error(`Peer with id ${jsonMessage.sessionId} was not found`);
+          }
+        
+          if (!peer.process) {
+            throw new Error(`Peer with id ${jsonMessage.sessionId} is not recording`);
+          }
+        
+          peer.process.kill();
+          peer.process = undefined;
+        
+          // Release ports from port set
+          for (const remotePort of peer.remotePort) {
+            releasePort(remotePort);
+          }
+        };
+        
+        const publishProducerRtpStream = async (producer) => {
+          console.log('publishProducerRtpStream()');
+          const {roomName} = peers[socket.id];
+          // Create the mediasoup RTP Transport used to send media to the GStreamer process
+          const router = rooms[roomName].router;
+          const rtpTransportConfig = config.plainRtpTransport;
+          const rtpTransport = await router.createPlainTransport(config.plainRtpTransport);
+        
+          // Set the receiver RTP ports
+          const remoteRtpPort = await getPort();
+          addRemotePort(remoteRtpPort,roomName);
+        
+          let remoteRtcpPort;
+          // If rtpTransport rtcpMux is false also set the receiver RTCP ports
+          if (!rtpTransportConfig.rtcpMux) {
+            remoteRtcpPort = await getPort();
+            addRemotePort(remoteRtcpPort,roomName);
+          }
         
         
-      })
+          // Connect the mediasoup RTP transport to the ports used by GStreamer
+          await rtpTransport.connect({
+            ip: '127.0.0.1',
+            port: remoteRtpPort,
+            rtcpPort: remoteRtcpPort
+          });
+        
+          addTransport(rtpTransport,roomName,true);
+        
+          const codecs = [];
+          // Codec passed to the RTP Consumer must match the codec in the Mediasoup router rtpCapabilities
+          const routerCodec = router.rtpCapabilities.codecs.find(
+            codec => codec.kind === producer.kind
+          );
+          codecs.push(routerCodec);
+        
+          const rtpCapabilities = {
+            codecs,
+            rtcpFeedback: []
+          };
+        
+          // Start the consumer paused
+          // Once the gstreamer process is ready to consume resume and send a keyframe
+          const rtpConsumer = await rtpTransport.consume({
+            producerId: producer.producerId,
+            rtpCapabilities,
+            paused: true
+          });
+        
+          addConsumer(rtpConsumer,roomName);
+        
+          return {
+            remoteRtpPort,
+            remoteRtcpPort,
+            localRtcpPort: rtpTransport.rtcpTuple ? rtpTransport.rtcpTuple.localPort : undefined,
+            rtpCapabilities,
+            rtpParameters: rtpConsumer.rtpParameters
+          };
+        };
+        
+        const startRecord = async (socketId) => {
+          let recordInfo = {};
+          const peer = peers[socketId];
+          for (const producer of peer.producers) {
+            recordInfo[producer.kind] = await publishProducerRtpStream(producer);
+          }
+        
+          recordInfo.fileName = Date.now().toString();
+        
+          peer.process = getProcess(recordInfo);
+        
+          setTimeout(async () => {
+            for (const consumer of peer.consumers) {
+              // Sometimes the consumer gets resumed before the GStreamer process has fully started
+              // so wait a couple of seconds
+              await consumer.resume();
+              await consumer.requestKeyFrame();
+            }
+          }, 1000);
+        };
+        
+        // Returns process command to use (GStreamer/FFmpeg) default is FFmpeg
+        const getProcess = (recordInfo) => {
+              return new FFmpeg(recordInfo);
+          }
+      });
       
-      
+
       const createWebRtcTransport = async (router) => {
         return new Promise(async (resolve, reject) => {
           try {
@@ -448,6 +546,6 @@ const WebSocket=(()=>{
             reject(error)
           }
         })};
-    });
+      });
     
     export default WebSocket;

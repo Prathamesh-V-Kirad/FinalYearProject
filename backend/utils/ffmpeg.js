@@ -1,161 +1,130 @@
-const inputSettings = ['-i', '-', '-v', 'error']
-const twitchSettings = (twitch) => {
-  if (twitch) {
-    return [
-      // video codec config: low latency, adaptive bitrate
-      '-c:v',
-      'libx264',
-      '-preset',
-      'veryfast',
-      '-tune',
-      'zerolatency',
+// Class to handle child process used for running FFmpeg
 
-      // audio codec config: sampling frequency (11025, 22050, 44100), bitrate 64 kbits
-      '-c:a',
-      'aac',
-      '-strict',
-      '-2',
-      '-ar',
-      '44100',
-      '-b:a',
-      '64k',
+import child_process from 'child_process';
+import { EventEmitter } from 'events';
+import { Readable } from 'stream';
+import createSdpText from './sdp.js';
 
-      //force to overwrite
-      '-y',
+const RECORD_FILE_LOCATION_PATH = './files';
 
-      // used for audio sync
-      '-use_wallclock_as_timestamps',
-      '1',
-      '-async',
-      '1',
+export default class FFmpeg {
+  constructor (rtpParameters) {
+    this._rtpParameters = rtpParameters;
+    this._process = undefined;
+    this._observer = new EventEmitter();
+    this._createProcess();
+  }
 
-      //'-filter_complex', 'aresample=44100', // resample audio to 44100Hz, needed if input is not 44100
-      //'-strict', 'experimental',
-    '-bufsize',
-      '1000',
+  _createProcess () {
+    const sdpString = createSdpText(this._rtpParameters);
+    const sdpStream = convertStringToStream(sdpString);
+
+    console.log('createProcess() [sdpString:%s]', sdpString);
+
+    this._process = child_process.spawn('ffmpeg', this._commandArgs);
+
+    if (this._process.stderr) {
+      this._process.stderr.setEncoding('utf-8');
+
+      this._process.stderr.on('data', data =>
+        console.log('ffmpeg::process::data [data:%o]', data)
+      );
+    }
+
+    if (this._process.stdout) {
+      this._process.stdout.setEncoding('utf-8');
+
+      this._process.stdout.on('data', data => 
+        console.log('ffmpeg::process::data [data:%o]', data)
+      );
+    }
+
+    this._process.on('message', message =>
+      console.log('ffmpeg::process::message [message:%o]', message)
+    );
+
+    this._process.on('error', error =>
+      console.error('ffmpeg::process::error [error:%o]', error)
+    );
+
+    this._process.once('close', () => {
+      console.log('ffmpeg::process::close');
+      this._observer.emit('process-close');
+    });
+
+    sdpStream.on('error', error =>
+      console.error('sdpStream::error [error:%o]', error)
+    );
+
+    // Pipe sdp stream to the ffmpeg process
+    sdpStream.resume();
+    sdpStream.pipe(this._process.stdin);
+  }
+
+  kill () {
+    console.log('kill() [pid:%d]', this._process.pid);
+    this._process.kill('SIGINT');
+  }
+
+  get _commandArgs () {
+    let commandArgs = [
+      '-loglevel',
+      'debug',
+      '-protocol_whitelist',
+      'pipe,udp,rtp',
+      '-fflags',
+      '+genpts',
       '-f',
-      'flv',
-      twitch,
-    ]
-    
-  } else return []
+      'sdp',
+      '-i',
+      'pipe:0'
+    ];
+
+    commandArgs = commandArgs.concat(this._videoArgs);
+    commandArgs = commandArgs.concat(this._audioArgs);
+
+    commandArgs = commandArgs.concat([
+      /*
+      '-flags',
+      '+global_header',
+      */
+      `${RECORD_FILE_LOCATION_PATH}/${this._rtpParameters.fileName}.webm`
+    ]);
+
+    console.log('commandArgs:%o', commandArgs);
+
+    return commandArgs;
+  }
+
+  get _videoArgs () {
+    return [
+      '-map',
+      '0:v:0',
+      '-c:v',
+      'copy'
+    ];
+  }
+
+  get _audioArgs () {
+    return [
+      '-map',
+      '0:a:0',
+      '-strict', // libvorbis is experimental
+      '-2',
+      '-c:a',
+      'copy'
+    ];
+  }
 }
 
-const youtubeSettings = (youtube) => {
-  if (youtube && youtube !== 'undefined') {
-    return [
-      // video codec config: low latency, adaptive bitrate
-      '-c:v',
-      'libx264',
-      '-preset',
-      'veryfast',
-      '-tune',
-      'zerolatency',
-      '-g:v',
-      '60',
 
-      // audio codec config: sampling frequency (11025, 22050, 44100), bitrate 64 kbits
-      '-c:a',
-      'aac',
-      '-strict',
-      '-2',
-      '-ar',
-      '44100',
-      '-b:a',
-      '64k',
 
-      //force to overwrite
-      '-y',
+// Converts a string (SDP) to a stream so it can be piped into the FFmpeg process
+const convertStringToStream = (stringToConvert) => {
+  const stream = new Readable();
+  stream._read = () => {};
+  stream.push(stringToConvert);
+  stream.push(null);
 
-      // used for audio sync
-      '-use_wallclock_as_timestamps',
-      '1',
-      '-async',
-      '1',
-
-      '-f',
-      'flv',
-      youtube,
-    ]
-  } else return []
-}
-
-const facebookSettings = (facebook) => {
-  if (facebook && facebook !== 'undefined') {
-    return [
-      // video codec config: low latency, adaptive bitrate
-      '-c:v',
-      'libx264',
-      '-preset',
-      'veryfast',
-      '-tune',
-      'zerolatency',
-
-      // audio codec config: sampling frequency (11025, 22050, 44100), bitrate 64 kbits
-      '-c:a',
-      'aac',
-      '-strict',
-      '-2',
-      '-ar',
-      '44100',
-      '-b:a',
-      '64k',
-
-      //force to overwrite
-      '-y',
-
-      // used for audio sync
-      '-use_wallclock_as_timestamps',
-      '1',
-      '-async',
-      '1',
-
-      '-f',
-      'flv',
-      facebook,
-    ]
-  } else return []
-}
-
-const customRtmpSettings = (customRTMP) => {
-  if (customRTMP && customRTMP !== 'undefined') {
-    return [
-      // video codec config: low latency, adaptive bitrate
-      '-c:v',
-      'libx264',
-      '-preset',
-      'veryfast',
-      '-tune',
-      'zerolatency',
-
-      // audio codec config: sampling frequency (11025, 22050, 44100), bitrate 64 kbits
-      '-c:a',
-      'aac',
-      '-strict',
-      '-2',
-      '-ar',
-      '44100',
-      '-b:a',
-      '64k',
-
-      //force to overwrite
-      '-y',
-
-      // used for audio sync
-      '-use_wallclock_as_timestamps',
-      '1',
-      '-async',
-      '1',
-
-      //'-filter_complex', 'aresample=44100', // resample audio to 44100Hz, needed if input is not 44100
-      //'-strict', 'experimental',
-      '-bufsize',
-      '1000',
-      '-f',
-      'flv',
-      customRTMP,
-    ]
-  } else return []
-}
-
-export {inputSettings,twitchSettings,youtubeSettings,facebookSettings,customRtmpSettings};
+  return stream;
+};
