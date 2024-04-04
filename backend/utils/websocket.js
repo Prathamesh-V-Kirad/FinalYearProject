@@ -456,7 +456,7 @@ const WebSocket=(()=>{
             codec => codec.kind === producer.kind
           );
           codecs.push(routerCodec);
-        
+          console.log("codec",codecs);
           const rtpCapabilities = {
             codecs,
             rtcpFeedback: []
@@ -466,7 +466,7 @@ const WebSocket=(()=>{
           // Once the gstreamer process is ready to consume resume and send a keyframe
           const rtpConsumer = await rtpTransport.consume({
             producerId: producer.producerId,
-            rtpCapabilities,
+            rtpCapabilities: router.rtpCapabilities,
             paused: true
           });
         
