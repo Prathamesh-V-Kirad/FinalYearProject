@@ -401,15 +401,15 @@ const WebSocket=(()=>{
           handleStopRecordRequest(socket.id); 
         });
         const handleStopRecordRequest = async (socketId) => {
-          console.log('handleStopRecordRequest() [data:%o]', jsonMessage);
+          console.log('handleStopRecordRequest()', socketId);
           const peer = peers[socketId];
         
           if (!peer) {
-            throw new Error(`Peer with id ${jsonMessage.sessionId} was not found`);
+            throw new Error(`Peer with id ${socket.id} was not found`);
           }
         
           if (!peer.process) {
-            throw new Error(`Peer with id ${jsonMessage.sessionId} is not recording`);
+            throw new Error(`Peer with id ${socket.id} is not recording`);
           }
         
           peer.process.kill();
@@ -492,14 +492,12 @@ const WebSocket=(()=>{
         
           peer.process = getProcess(recordInfo);
         
-          setTimeout(async () => {
+          // setTimeout(async () => {
             for (const consumer of peer.consumers) {
-              // Sometimes the consumer gets resumed before the GStreamer process has fully started
-              // so wait a couple of seconds
               await consumer.resume();
               await consumer.requestKeyFrame();
             }
-          }, 1000);
+          // }, 1000);
         };
         
         // Returns process command to use (GStreamer/FFmpeg) default is FFmpeg
