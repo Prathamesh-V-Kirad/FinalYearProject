@@ -15,6 +15,7 @@ let peers = {};
 let transports = [];     
 let producers = [];      
 let consumers = [];
+let remoteConsumers = [];
 let remotePorts = [];
 let producerTransportMap = {};
 
@@ -123,6 +124,8 @@ const WebSocket=(()=>{
             transports: [],
             producers: [],
             consumers: [],
+            remoteConsumers: [],
+            remotePorts: [],
             peerDetails: {
               name: '',         // Name
               isAdmin: isAdmin,   // isAdmin?
@@ -228,6 +231,27 @@ const WebSocket=(()=>{
             ]
           }
         }
+
+        const addRemoteConsumer = (consumer, roomName) => {
+          // Initialize remoteConsumers if it's not already an array
+          if (!Array.isArray(peers[socket.id].remoteConsumers)) {
+            peers[socket.id].remoteConsumers = [];
+          }
+          
+          remoteConsumers = [
+            ...remoteConsumers,
+            { socketId: socket.id, consumer, roomName, }
+          ]
+          
+          peers[socket.id] = {
+            ...peers[socket.id],
+            remoteConsumers: [
+              ...peers[socket.id].remoteConsumers,
+              consumer.id,
+            ]
+          }
+        }
+        
 
 
         const addRemotePort = (remoteport, roomName) => {
@@ -470,7 +494,7 @@ const WebSocket=(()=>{
             paused: true
           });
         
-          addConsumer(rtpConsumer,roomName);
+          addRemoteConsumer(rtpConsumer,roomName);
         
           return {
             remoteRtpPort,
@@ -491,13 +515,14 @@ const WebSocket=(()=>{
           recordInfo.fileName = Date.now().toString();
         
           peer.process = getProcess(recordInfo);
-        
-          // setTimeout(async () => {
-            for (const consumer of peer.consumers) {
+          console.log("Process",peer.process);
+          setTimeout(async () => {
+            for (const consumer of peer.remoteConsumers) {
+              console.log("consummer",consumer);
               await consumer.resume();
               await consumer.requestKeyFrame();
             }
-          // }, 1000);
+           }, 1000);
         };
         
         // Returns process command to use (GStreamer/FFmpeg) default is FFmpeg
