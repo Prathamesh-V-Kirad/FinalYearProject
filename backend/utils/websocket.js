@@ -24,12 +24,14 @@ const mediaCodecs = [
     kind: 'audio',
     mimeType: 'audio/opus',
     clockRate: 48000,
+    preferredPayloadType: 111,
     channels: 2,
   },
   {
     kind: 'video',
     mimeType: 'video/VP8',
     clockRate: 90000,
+    preferredPayloadType: 96,
     parameters: {
       'x-google-start-bitrate': 1000,
     },
@@ -124,7 +126,6 @@ const WebSocket=(()=>{
             transports: [],
             producers: [],
             consumers: [],
-            remoteConsumers: [],
             remotePorts: [],
             peerDetails: {
               name: '',         // Name
@@ -233,23 +234,10 @@ const WebSocket=(()=>{
         }
 
         const addRemoteConsumer = (consumer, roomName) => {
-          // Initialize remoteConsumers if it's not already an array
-          if (!Array.isArray(peers[socket.id].remoteConsumers)) {
-            peers[socket.id].remoteConsumers = [];
-          }
-          
           remoteConsumers = [
             ...remoteConsumers,
             { socketId: socket.id, consumer, roomName, }
           ]
-          
-          peers[socket.id] = {
-            ...peers[socket.id],
-            remoteConsumers: [
-              ...peers[socket.id].remoteConsumers,
-              consumer.id,
-            ]
-          }
         }
         
 
@@ -511,24 +499,26 @@ const WebSocket=(()=>{
           for (const producer of peer.producers) {
             recordInfo[producer.kind] = await publishProducerRtpStream(producer);
           }
-        
+          console.log("recordInfo",recordInfo.rtpParameters);
           recordInfo.fileName = Date.now().toString();
         
-          peer.process = getProcess(recordInfo);
-          console.log("Process",peer.process);
+          peer.process = new FFmpeg(recordInfo);
+          console.log("Process aabck",peer.process);
           setTimeout(async () => {
-            for (const consumer of peer.remoteConsumers) {
-              console.log("consummer",consumer);
-              await consumer.resume();
-              await consumer.requestKeyFrame();
+            
+            for (const consumer of remoteConsumers) {
+              console.log("consummer 5s",consumer);
+              console.log("consummer wws",consumer.consumer);
+              console.log("\n");
+              await consumer.consumer.resume();
+              await consumer.consumer.requestKeyFrame();
             }
-           }, 1000);
+            }, 3000);
         };
         
-        // Returns process command to use (GStreamer/FFmpeg) default is FFmpeg
-        const getProcess = (recordInfo) => {
-              return new FFmpeg(recordInfo);
-          }
+        // const getProcess = (recordInfo) => {
+        //       return new FFmpeg(recordInfo);
+        //   }
       });
       
 

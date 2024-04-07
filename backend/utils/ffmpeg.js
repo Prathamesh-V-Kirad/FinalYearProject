@@ -20,7 +20,7 @@ export default class FFmpeg {
     const sdpStream = convertStringToStream(sdpString);
 
     console.log('createProcess() [sdpString:%s]', sdpString);
-
+    console.log("commandArgs",this._commandArgs);
     this._process = child_process.spawn('ffmpeg', this._commandArgs);
 
     if (this._process.stderr) {
@@ -32,11 +32,11 @@ export default class FFmpeg {
     }
 
     if (this._process.stdout) {
-      this._process.stdout.setEncoding('utf-8');
+      // this._process.stdout.setEncoding('utf-8');
 
-      this._process.stdout.on('data', data => 
-        console.log('ffmpeg::process::data [data:%o]', data)
-      );
+      // this._process.stdout.on('data', data => 
+      //   console.log('ffmpeg::process::data [data:%o]', data)
+      // );
     }
 
     this._process.on('message', message =>
@@ -59,6 +59,7 @@ export default class FFmpeg {
     // Pipe sdp stream to the ffmpeg process
     sdpStream.resume();
     sdpStream.pipe(this._process.stdin);
+
   }
 
   kill () {
@@ -69,7 +70,7 @@ export default class FFmpeg {
   get _commandArgs () {
     let commandArgs = [
       '-loglevel',
-      'debug',
+      'error',
       '-protocol_whitelist',
       'pipe,udp,rtp',
       '-fflags',
