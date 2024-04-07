@@ -465,7 +465,7 @@ const WebSocket=(()=>{
           const codecs = [];
           // Codec passed to the RTP Consumer must match the codec in the Mediasoup router rtpCapabilities
           const routerCodec = router.rtpCapabilities.codecs.find(
-            codec => codec.kind === producer.kind
+            codec => codec.kind === producer.producer.kind
           );
           codecs.push(routerCodec);
           console.log("codec",codecs);
@@ -473,12 +473,10 @@ const WebSocket=(()=>{
             codecs,
             rtcpFeedback: []
           };
-        
-          // Start the consumer paused
-          // Once the gstreamer process is ready to consume resume and send a keyframe
+
           const rtpConsumer = await rtpTransport.consume({
-            producerId: producer.producerId,
-            rtpCapabilities: router.rtpCapabilities,
+            producerId: producer.producer.id,
+            rtpCapabilities: rtpCapabilities,
             paused: true
           });
         
@@ -496,19 +494,17 @@ const WebSocket=(()=>{
         const startRecord = async (socketId) => {
           let recordInfo = {};
           const peer = peers[socketId];
-          for (const producer of peer.producers) {
-            recordInfo[producer.kind] = await publishProducerRtpStream(producer);
+          for (const producer of producers) {
+            recordInfo[producer.producer.kind] = await publishProducerRtpStream(producer);
           }
-          console.log("recordInfo",recordInfo.rtpParameters);
           recordInfo.fileName = Date.now().toString();
-        
+          console.log("recordInfo:",recordInfo);
           peer.process = new FFmpeg(recordInfo);
-          console.log("Process aabck",peer.process);
+          console.log("Process",peer.process);
           setTimeout(async () => {
             
             for (const consumer of remoteConsumers) {
-              console.log("consummer 5s",consumer);
-              console.log("consummer wws",consumer.consumer);
+              console.log("consummer:",consumer);
               console.log("\n");
               await consumer.consumer.resume();
               await consumer.consumer.requestKeyFrame();

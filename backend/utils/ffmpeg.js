@@ -23,13 +23,13 @@ export default class FFmpeg {
     console.log("commandArgs",this._commandArgs);
     this._process = child_process.spawn('ffmpeg', this._commandArgs);
 
-    if (this._process.stderr) {
-      this._process.stderr.setEncoding('utf-8');
+    // if (this._process.stderr) {
+    //   this._process.stderr.setEncoding('utf-8');
 
-      this._process.stderr.on('data', data =>
-        console.log('ffmpeg::process::data [data:%o]', data)
-      );
-    }
+    //   this._process.stderr.on('data', data =>
+    //     console.log('ffmpeg::process::data [data:%o]', data)
+    //   );
+    // }
 
     if (this._process.stdout) {
       // this._process.stdout.setEncoding('utf-8');
@@ -39,9 +39,9 @@ export default class FFmpeg {
       // );
     }
 
-    this._process.on('message', message =>
-      console.log('ffmpeg::process::message [message:%o]', message)
-    );
+    // this._process.on('message', message =>
+    //   console.log('ffmpeg::process::message [message:%o]', message)
+    // );
 
     this._process.on('error', error =>
       console.error('ffmpeg::process::error [error:%o]', error)
@@ -83,7 +83,6 @@ export default class FFmpeg {
 
     commandArgs = commandArgs.concat(this._videoArgs);
     commandArgs = commandArgs.concat(this._audioArgs);
-
     commandArgs = commandArgs.concat([
       /*
       '-flags',
@@ -91,8 +90,6 @@ export default class FFmpeg {
       */
       `${RECORD_FILE_LOCATION_PATH}/${this._rtpParameters.fileName}.webm`
     ]);
-
-    console.log('commandArgs:%o', commandArgs);
 
     return commandArgs;
   }

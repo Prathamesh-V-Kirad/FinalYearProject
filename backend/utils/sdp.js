@@ -2,8 +2,7 @@
 // File to create SDP text from mediasoup RTP Parameters
 const createSdpText = (rtpParameters) => {
   const { video, audio } = rtpParameters;
-  
-
+  console.log("sdpParameters",rtpParameters);
   return `v=0
   o=- 0 0 IN IP4 127.0.0.1
   s=FFmpeg
