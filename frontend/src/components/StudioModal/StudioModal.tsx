@@ -19,7 +19,11 @@ const formSchema = z.object({
   }),
 });
 
-function StudioModal() {
+type StudioModalProps = {
+  updateName : (name : string) => void,
+}
+
+function StudioModal({ updateName } : StudioModalProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -32,6 +36,7 @@ function StudioModal() {
     try {
       // do something here
       console.log(name);
+      updateName(name);
     } catch (error) {
       console.log(error);
     }

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom';
 import Video from '@/components/Video/Video';
 import { FaVideo, FaVideoSlash, FaMicrophone, FaMicrophoneSlash } from "react-icons/fa6";
+import { MdEdit } from "react-icons/md";
 import { IoSend, IoMenu, IoClose } from "react-icons/io5";
 import { TbShare2 } from "react-icons/tb";
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import StudioModal from '@/components/StudioModal/StudioModal';
 import api from '@/lib/api';
 import html2canvas from 'html2canvas';
+import UpdateModal from '@/components/UpdateModal/UpdateModal';
+import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 
 type ChannelType = {
   yt_title : string,
@@ -56,6 +59,7 @@ const Studio = () => {
   const MENU_ICON : JSX.Element = menu ? <IoClose size='15' /> : <IoMenu size='15' />;
   //
   const userVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [streamName, setStreamName] = useState<string | null>(null);
   const [userStream, setUserStream] = useState<MediaStream | null>(null);
   const [live, setLive] = useState<boolean>(false);
   const GO_LIVE_TEXT : string = live ? "End Live" : "Go Live";
@@ -169,6 +173,10 @@ const Studio = () => {
       socket.emit('stopScreenShare', screenProducerInstance.id);
     }
   };
+
+  const updateStreamName = (name : string | null) => {
+    setStreamName(name);
+  }
 
 //   useEffect(() => {
 //     const observerCallback = () => {
@@ -513,20 +521,21 @@ useEffect(() => {
 
   return (
     <>
-      <StudioModal/>
+      <StudioModal updateName={(name) => updateStreamName(name)}/>
       <div className="relative flex flex-col xl:flex-row h-screen">
         <div className="xl:w-4/6 p-4 bg-secondary flex flex-col">
           <div className='flex gap-2'>
-            {/* {(channel.yt_title != null) && <p>Youtube</p>}
+            {/* {(channel.yt_titlbroadcaste != null) && <p>Youtube</p>}
             {(channel.twitch_title != null) && <p>Twitch</p>}
             {(channel.fb_title != null) && <p>Facebook</p>} */}
           </div>
           <div className='relative'>
             {live && <div className='absolute top-4 left-4 h-[25px] w-[50px] font-bold bg-red-600 text-white tracking-wider text-sm rounded-md flex justify-center items-center animate-pulse'>LIVE</div>}
             <div ref={videoContainerRef} id="videoContainer" className="flex flex-wrap gap-3 py-6 justify-center border-2 rounded-md bg-slate-200 relative">
-              <Video className="w-[450px] aspect-video object-cover rounded-lg" videoRef={userVideoRef} />
+              <Video className="w-[450px] aspect-video object-cover rounded-lg" videoRef={userVideoRef}/>
               <Video className={`aspect-video w-[450px] rounded-lg ${!isScreenSharing ? "hidden" : ""}`} videoRef={screenShareVideoRef} />
               <div className='absolute top-4 right-4 w-[50px] h-[50px] object-cover rounded-full'><img className='w-full h-full' src="/StreamSync.png" alt="StreamSync logo" /></div>
+              {streamName && <div className='absolute bottom-4 left-4 bg-black text-white px-2 py-1 text-sm rounded-md font-bold'><span className='pr-2'>{streamName}</span><Dialog><DialogTrigger><MdEdit /></DialogTrigger><UpdateModal updateName={(name) => updateStreamName(name)} /></Dialog></div>}
             </div>
           </div>
           {isAdmin?
